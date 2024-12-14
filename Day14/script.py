@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from math import prod
 import re
 import os
+import png
 os.chdir(os.path.dirname(__file__))
 
 @dataclass
@@ -18,6 +19,13 @@ class Velocity:
 class Robot:
     point: Point
     velocity: Velocity
+    origin: Point|None = None
+
+    def init(self):
+        self.origin = Point(self.point.x, self.point.y)
+
+    def reset(self):
+        self.point = Point(self.origin.x, self.origin.y)
 
     def move(self):
         nx, ny = self.point.x + self.velocity.x, self.point.y + self.velocity.y
@@ -45,7 +53,9 @@ def main():
         for line in lines:
             m = re.match(r'p=(?P<px>\d+),(?P<py>\d+) v=(?P<vx>\-?\d+),(?P<vy>\-?\d+)', line)
             px, py, vx, vy = int(m['px']), int(m['py']), int(m['vx']), int(m['vy'])
-            robots.append(Robot(Point(px, py), Velocity(vx, vy)))
+            r = Robot(Point(px, py), Velocity(vx, vy))
+            r.init()
+            robots.append(r)
 
     seconds = 100
     for _ in range(seconds):
@@ -67,6 +77,20 @@ def main():
 
     safety_factor = prod(len(q.robots) for q in quadrants)
     print(f'Safety factor: {safety_factor}')
+
+    for r in robots:
+        r.reset()
+
+    for frame in range(1, 10000):
+        for r in robots:
+            r.move()
+            r.normalize(width, height)
+        img = [[0 for _ in range(width)] for _ in range(height)]
+        for r in robots:
+            img[r.point.y][r.point.x] = 255
+        # Only save images that have at least 20 robots in one line
+        if any(line for line in img if sum(line) > 255 * 20):
+            png.from_array(img, 'L').save(f'frames/{frame}.png')
 
 if __name__ == '__main__':
     main()
