@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from itertools import product
 import re
 import os
+from sympy import Eq, solve
+from sympy.abc import a, b
 os.chdir(os.path.dirname(__file__))
 
 @dataclass
@@ -23,6 +24,7 @@ class Machine:
 MAX_PRESSES = 100
 COST_A = 3
 COST_B = 1
+PART2 = True
 
 def main():
     machines: list[Machine] = []
@@ -43,18 +45,18 @@ def main():
         except StopIteration:
             break
 
+    if PART2:
+        for m in machines:
+            m.prize.x += 10000000000000
+            m.prize.y += 10000000000000
+
     total_tokens = 0
     for m in machines:
-        min_cost = -1
-        for a_presses, b_presses in product(range(0, MAX_PRESSES + 1), range(0, MAX_PRESSES + 1)):
-            x = a_presses * m.button_a.x + b_presses * m.button_b.x
-            y = a_presses * m.button_a.y + b_presses * m.button_b.y
-            if m.prize.x == x and m.prize.y == y:
-                cost = a_presses * COST_A + b_presses * COST_B
-                if min_cost == -1 or cost < min_cost:
-                    min_cost = cost
-        if min_cost != -1:
-            total_tokens += min_cost
+        eq_x = Eq(m.prize.x, a * m.button_a.x + b * m.button_b.x)
+        eq_y = Eq(m.prize.y, a * m.button_a.y + b * m.button_b.y)
+        result = solve((eq_x, eq_y), (a, b))
+        if result[a] == int(result[a]) and result[b] == int(result[b]):
+            total_tokens += result[a] * COST_A + result[b] * COST_B
 
     print(f'Total tokens spent: {total_tokens}')
 
