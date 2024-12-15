@@ -1,8 +1,22 @@
+from dataclasses import dataclass
 import os
 os.chdir(os.path.dirname(__file__))
 
+@dataclass
+class Point:
+    x: int
+    y: int
+
+    def add(self, v: 'Vector') -> 'Point':
+        return Point(self.x + v.x, self.y + v.y)
+
+@dataclass
+class Vector:
+    x: int
+    y: int
+
 def main():
-    map: list[list[str]] = []
+    area_map: list[list[str]] = []
     instructions: str = ''
     with open('input.txt', 'r', encoding='utf-8') as f:
         read_map = True
@@ -11,15 +25,15 @@ def main():
             if not line:
                 read_map = False
             if read_map:
-                map.append(list(line))
+                area_map.append(list(line))
             else:
                 instructions += line
 
     bot = None
-    for y, line in enumerate(map):
+    for y, line in enumerate(area_map):
         for x, char in enumerate(line):
             if char == '@':
-                bot = (x, y)
+                bot = Point(x, y)
                 break
         if bot is not None:
             break
@@ -27,45 +41,47 @@ def main():
 
     for instruction in instructions:
         vector = get_vector(instruction)
-        char, pos = find_space_or_wall(bot, vector, map)
-        if char == '#':
-            continue
-        assert char == '.'
-        from_x, from_y = pos
-        while True:
-            to_x, to_y = (from_x + vector[0] * -1, from_y + vector[1] * -1)
-            map[to_y][to_x], map[from_y][from_x] = map[from_y][from_x], map[to_y][to_x]
-            if (to_x, to_y) == bot:
-                bot = (from_x, from_y)
-                break
-            from_x, from_y = to_x, to_y
+        new_pos = try_move(bot, vector, area_map)
+        if new_pos is not None:
+            bot = new_pos
 
     gps_sum = 0
-    for y, line in enumerate(map):
+    for y, line in enumerate(area_map):
         for x, char in enumerate(line):
             if char == 'O':
                 gps_sum += 100 * y + x
 
     print(f'Sum of GPS coordinates: {gps_sum}')
 
-def find_space_or_wall(pos: tuple[int, int], vector: tuple[int, int], map: list[list[str]]):
-    x, y = pos
-    while True:
-        x, y = (x + vector[0], y + vector[1])
-        char = map[y][x]
-        if char in ('.', '#'):
-            return char, (x, y)
+def try_move(pos: Point, v: Vector, area_map: list[list[str]]) -> Point | None:
+    to_pos = pos.add(v)
+    to_char = area_map[to_pos.y][to_pos.x]
+    if to_char == '.':
+        swap(pos, to_pos, area_map)
+        return to_pos
+    elif to_char == 'O':
+        if try_move(to_pos, v, area_map) is not None:
+            swap(pos, to_pos, area_map)
+            return to_pos
+        return None
+    elif to_char == '#':
+        return None
+    else:
+        raise ValueError(f'Unknown char {to_char}')
 
-def get_vector(instruction):
+def swap(p_from: Point, p_to: Point, area_map: list[list[str]]):
+    area_map[p_to.y][p_to.x], area_map[p_from.y][p_from.x] = area_map[p_from.y][p_from.x], area_map[p_to.y][p_to.x]
+
+def get_vector(instruction) -> Vector:
     match instruction:
         case '^':
-            return (0, -1)
+            return Vector(0, -1)
         case 'v':
-            return (0, 1)
+            return Vector(0, 1)
         case '>':
-            return (1, 0)
+            return Vector(1, 0)
         case '<':
-            return (-1, 0)
+            return Vector(-1, 0)
 
 if __name__ == '__main__':
     main()
