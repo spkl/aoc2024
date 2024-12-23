@@ -1,5 +1,5 @@
 import os
-from typing import Iterable
+import itertools
 os.chdir(os.path.dirname(__file__))
 
 class Keypad:
@@ -18,44 +18,53 @@ class Keypad:
                     return (x, y)
         assert False
 
-    def _type_key(self, key: str) -> Iterable[str]:
+    def _type_key(self, key: str) -> list[str]:
+        '''Returns all possible paths to type the key from the current position.'''
         src_x, src_y = self.pos
         dest_x, dest_y = self._find_key(key)
-        if self.forbidden_pos != (dest_x, src_y): # assume forbidden key is in a corner
-            if dest_x < src_x:
-                for _ in range(src_x - dest_x):
-                    yield '<'
-            elif dest_x > src_x:
-                for _ in range(dest_x - src_x):
-                    yield '>'
-            if dest_y < src_y:
-                for _ in range(src_y - dest_y):
-                    yield '^'
-            elif dest_y > src_y:
-                for _ in range(dest_y - src_y):
-                    yield 'v'
-        else:
-            if dest_y < src_y:
-                for _ in range(src_y - dest_y):
-                    yield '^'
-            elif dest_y > src_y:
-                for _ in range(dest_y - src_y):
-                    yield 'v'
-            if dest_x < src_x:
-                for _ in range(src_x - dest_x):
-                    yield '<'
-            elif dest_x > src_x:
-                for _ in range(dest_x - src_x):
-                    yield '>'
-        yield 'A'
+        required_keys = '<' * (src_x - dest_x) \
+            + '>' * (dest_x - src_x) \
+            + '^' * (src_y - dest_y) \
+            + 'v' * (dest_y - src_y)
+        paths = set(itertools.permutations(required_keys, len(required_keys)))
+        possible_paths = [''.join(path) + 'A' for path in paths if self._path_is_possible(path)]
         self.pos = (dest_x, dest_y)
+        return possible_paths
 
-    def type_code(self, keys: str) -> str:
-        typed_keys = ''
+    def _path_is_possible(self, path: str) -> bool:
+        x, y = self.pos
+        for step in path:
+            match step:
+                case '<':
+                    x -= 1
+                case '>':
+                    x += 1
+                case '^':
+                    y -= 1
+                case 'v':
+                    y += 1
+            if (x, y) == self.forbidden_pos:
+                return False
+        return True
+
+    def type_code(self, keys: str) -> list[str]:
+        '''Returns all possible paths to type the code (keys) from the current position.'''
+        path_possibilities = []
         for key in keys:
-            for typed_key in self._type_key(key):
-                typed_keys += typed_key
-        return typed_keys
+            path_possibilities.append(self._type_key(key))
+        result = Keypad.recombine(path_possibilities)
+        return result
+
+    @staticmethod
+    def recombine(options):
+        result = []
+        result.extend(options[0])
+        for option in options[1:]:
+            result = [item for item in result for _ in range(len(option))]
+            option_cycle = itertools.cycle(option)
+            for i, x in enumerate(result):
+                result[i] = x + next(option_cycle)
+        return result
 
 class NumericKeypad(Keypad):
     start_key = 'A'
@@ -80,9 +89,17 @@ class KeypadChain:
         self.keypads = keypads
 
     def type(self, code: str) -> str:
+        options = [code]
         for keypad in self.keypads:
-            code = keypad.type_code(code)
-        return code
+            new_options = []
+            for option in options:
+                new_options.extend(keypad.type_code(option))
+            options = new_options
+        min_option = options[0]
+        for option in options:
+            if len(option) < len(min_option):
+                min_option = option
+        return min_option
 
 def main():
     with open('input.txt', 'r', encoding='utf-8') as f:
