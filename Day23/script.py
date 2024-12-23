@@ -1,5 +1,6 @@
 import os
-import itertools
+from networkx.algorithms.clique import enumerate_all_cliques, max_weight_clique
+from networkx import to_networkx_graph
 os.chdir(os.path.dirname(__file__))
 
 def main():
@@ -14,15 +15,20 @@ def main():
         connected_computers.setdefault(c2, set())
         connected_computers[c2].add(c1)
 
+    graph = to_networkx_graph(connected_computers)
+
     n_computer_sets_with_t = 0
-    for c1, c2, c3 in itertools.combinations(connected_computers.keys(), 3):
-        if c2 in connected_computers[c1] and c3 in connected_computers[c1] \
-            and c1 in connected_computers[c2] and c3 in connected_computers[c2] \
-            and c1 in connected_computers[c3] and c2 in connected_computers[c3]:
-            if c1.startswith('t') or c2.startswith('t') or c3.startswith('t'):
+    for network in enumerate_all_cliques(graph):
+        if len(network) > 3:
+            break
+        if len(network) == 3:
+            if any(computer for computer in network if computer.startswith('t')):
                 n_computer_sets_with_t += 1
 
     print(f'There are {n_computer_sets_with_t} sets of three connected computers where at least one has a t in it')
+
+    largest_network, _ = max_weight_clique(graph, weight=None)
+    print(','.join(sorted(largest_network)))
 
 if __name__ == '__main__':
     main()
